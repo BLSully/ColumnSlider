@@ -20,7 +20,10 @@
 						in the dataTables initialization:
 								$(example).dataTable({
 									sDom: '<"H"lfr>Vt<"F"ip>',
-									oCVS: { //put custom settings here }
+									oCVS: { 
+										slider: { //custom Slider Settings },
+										ignoreColumns: [0, 1, 2, 3] //add columns here you want ignored regardless of visiblity
+									}
 								});
 
 						Fair warning: Anything other than the defaults right now
@@ -29,6 +32,8 @@
 		Change Log:
 						11/2/2011 - Added CSS rules to give the slider a bit of 
 												room in the UI
+						11/3/2011 - Added ability to ignore certain columns by index
+												no matter if they are visible or invisible
 */
 
 (function ($) {
@@ -37,8 +42,14 @@
 		me.DT = oDataTable;
 		me.inOperation = false;
 		me.aiInitialVisibleColumns = [];
-		this.getVisibleColumnsInDataTable();
+		me.aiIgnoreColumns = [];
+		if ('oCVS' in oDataTable.oInit) {
+			if (typeof oDataTable.oInit.oCVS.ignoreColumns === 'object' && 'push' in oDataTable.oInit.oCVS.ignoreColumns) { //it's an array
+				me.aiIgnoreColumns = oDataTable.oInit.oCVS.ignoreColumns;
+			}
+		}
 
+		this.getVisibleColumnsInDataTable();
 		me.aiVisibleColumns = [];
 		me.$WidgetContainer = $('<div class="columnSlider"></div>');
 
@@ -47,18 +58,17 @@
 			min: 0,
 			max: me.aiInitialVisibleColumns.length - 1,
 			values: [0, me.aiInitialVisibleColumns.length - 1],
-			start: function () {
-				me.inOperation = true;
-			},
-			slide: function (e, ui) {
+			change: function (e, ui) {
 				me.setVisibleColumnsInDataTable(ui.values[0], ui.values[1]);
 			},
-			stop: function () {
-				me.inOperation = false;
+			stop: function (e, ui) {
+				$(this).trigger('change');
 			}
 		}
 		if ('oCVS' in oDataTable.oInit) {
-			$.extend(sliderDefaults, oDataTable.oInit.oCVS);
+			if ('slider' in oDataTable.oInit.oCVS) {
+				$.extend(sliderDefaults, oDataTable.oInit.oCVS.slider);
+			}
 		}
 
 		me.$WidgetContainer.slider(me.sliderDefaults).css({
@@ -80,14 +90,11 @@
 			if (iIndex > -1 && bShow === false) {
 				me.aiInitialVisibleColumns.splice(iIndex, 1);
 			}
-			else if (iIndex == -1 && bShow === true) {
+			else if (iIndex == -1 && bShow === true && $.inArray(iCol, me.aiIgnoreColumns) == -1) {
 				me.aiInitialVisibleColumns.push(iCol);
 			}
 			me.aiInitialVisibleColumns.sort(me.sortNumber);
-			me.sliderDefaults.max = me.aiInitialVisibleColumns.length - 1;
-			me.$WidgetContainer.slider('destroy').slider(me.sliderDefaults).css({
-				margin: '.5em 1em'
-			});
+			me.$WidgetContainer.slider("option", "max", me.aiInitialVisibleColumns.length - 1).slider("option", "values", [0, me.aiInitialVisibleColumns.length - 1]);
 			this._oldColumnVis(iCol, bShow, bRedraw);
 		}
 
@@ -100,7 +107,6 @@
 
 	ColumnVisibilitySlider.prototype.setVisibleColumnsInDataTable = function (minVis, maxVis) {
 		for (var i = 0; i < this.aiInitialVisibleColumns.length; i++) {
-			this.inOperation = true;
 			if (i < minVis || i > maxVis) {
 				this.DT.oInstance._oldColumnVis(this.aiInitialVisibleColumns[i], false);
 			} else {
@@ -112,7 +118,8 @@
 	ColumnVisibilitySlider.prototype.getVisibleColumnsInDataTable = function () {
 		this.aiInitialVisibleColumns = [];
 		for (var i = 0; i < this.DT.aoColumns.length; i++) {
-			if (this.DT.aoColumns[i].bVisible) {
+			if (this.DT.aoColumns[i].bVisible && $.inArray(i, this.aiIgnoreColumns) == -1) {
+				//make sure it's a visible column to begin with and it isn't an ignored field (set by configuration)
 				this.aiInitialVisibleColumns.push(i);
 			}
 		}
