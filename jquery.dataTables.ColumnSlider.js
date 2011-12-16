@@ -37,15 +37,24 @@
 */
 
 (function ($) {
+
+		
 	var ColumnVisibilitySlider = function (oDataTable) {
 		var me = this;
+		var events = {
+			onSlide: function (e, ui) {
+			}
+		};
 		me.DT = oDataTable;
 		me.inOperation = false;
 		me.aiInitialVisibleColumns = [];
 		me.aiIgnoreColumns = [];
-		if ('oCVS' in oDataTable.oInit) {
+		if ('oCVS' in oDataTable.oInit && typeof oDataTable.oInit.oCVS === 'object') {
 			if (typeof oDataTable.oInit.oCVS.ignoreColumns === 'object' && 'push' in oDataTable.oInit.oCVS.ignoreColumns) { //it's an array
 				me.aiIgnoreColumns = oDataTable.oInit.oCVS.ignoreColumns;
+			}
+			if (typeof oDataTable.oInit.oCVS.onSlide === 'function'){
+				events.onSlide = oDataTable.oInit.oCVS.onSlide;
 			}
 		}
 
@@ -58,6 +67,7 @@
 			min: 0,
 			max: me.aiInitialVisibleColumns.length - 1,
 			values: [0, me.aiInitialVisibleColumns.length - 1],
+			start: events.onSlide,
 			change: function (e, ui) {
 				me.setVisibleColumnsInDataTable(ui.values[0], ui.values[1]);
 			},
@@ -82,6 +92,7 @@
 		and manage our cache of visible columns correctly.
 		*/
 		oDataTable.oInstance._oldColumnVis = oDataTable.oInstance.fnSetColumnVis;
+		
 		oDataTable.oInstance.fnSetColumnVis = function (iCol, bShow, bRedraw) {
 			me.$WidgetContainer.slider('values', 0, 0);
 			me.$WidgetContainer.slider('values', 1, me.aiInitialVisibleColumns.length - 1);
@@ -131,7 +142,8 @@
 
 	//feature test
 	if (!('slider' in $())) { throw "jQueryUI Slider is required"; }
-
+	if (!('dataTable' in $())) { throw 'jQuery dataTable plugin not available.'; }
+	
 	if (typeof $.fn.dataTable === 'function' && typeof $.fn.dataTableExt.fnVersionCheck === 'function' && $.fn.dataTableExt.fnVersionCheck('1.8.0')) {
 		$.fn.dataTableExt.aoFeatures.push({
 			sFeature: 'ColumnVisibilitySlider',
@@ -143,4 +155,3 @@
 		});
 	}
 })(jQuery)
-
